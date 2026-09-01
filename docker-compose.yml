@@ -1,0 +1,108 @@
+services:
+  openbao:
+    image: docker.io/openbao/openbao:latest
+    command: server -dev -config=/etc/openbao/openbao.hcl
+    environment:
+      BAO_DEV_ROOT_TOKEN_ID: dev-token
+      BAO_DEV_LISTEN_ADDRESS: 0.0.0.0:8200
+    cap_add:
+      - IPC_LOCK
+    ports:
+      - "28200:8200"
+    healthcheck:
+      test: ["CMD", "sh", "-c", "BAO_ADDR=http://127.0.0.1:8200 BAO_TOKEN=dev-token bao status >/dev/null 2>&1"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    volumes:
+      - ./openbao.hcl:/etc/openbao/openbao.hcl:ro
+
+  controller:
+    build:
+      context: .
+    command: ["-config", "/etc/openbao-kv-azure-sync/config.yaml"]
+    environment:
+      AZURE_CLIENT_ID: ${AZURE_CLIENT_ID:-}
+      AZURE_CLIENT_SECRET: ${AZURE_CLIENT_SECRET:-}
+      AZURE_TENANT_ID: ${AZURE_TENANT_ID:-}
+    ports:
+      - "18080:8080"
+      - "19090:9090"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "-", "http://127.0.0.1:9090/healthz"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    volumes:
+      - ./configs/config.docker.yaml:/etc/openbao-kv-azure-sync/config.yaml:ro
+
+  openbao-bootstrap:
+    image: docker.io/openbao/openbao:latest
+    depends_on:
+      controller:
+        condition: service_healthy
+      openbao:
+        condition: service_healthy
+    environment:
+      BAO_ADDR: http://openbao:8200
+      BAO_TOKEN: dev-token
+      AZURE_KEY_VAULT_NAME: ${AZURE_KEY_VAULT_NAME:-}
+    command:
+      - sh
+      - -ec
+      - |
+        until bao status >/dev/null 2>&1; do sleep 1; done
+
+        bao kv put secret/app/db username=demo password=demo
+
+        bao kv metadata patch \
+          -mount=secret \
+          -custom-metadata=sync.enabled=true \
+          -custom-metadata=sync.target.provider=dryrun \
+          -custom-metadata=sync.format=json \
+          app/db
+
+        if [ -n "$$AZURE_KEY_VAULT_NAME" ]; then
+          bao kv put secret/app/azure username=demo password=azure-demo
+
+          bao kv metadata patch \
+            -mount=secret \
+            -custom-metadata=sync.enabled=true \
+            -custom-metadata=sync.target.provider=azure \
+            -custom-metadata=sync.target.type=secret \
+            -custom-metadata=sync.target.name="$$AZURE_KEY_VAULT_NAME" \
+            -custom-metadata=sync.prefix=local \
+            -custom-metadata=sync.format=json \
+            app/azure
+        fi
+    restart: "no"
+
+  prometheus:
+    image: docker.io/prom/prometheus:v2.53.4
+    depends_on:
+      controller:
+        condition: service_healthy
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --web.console.libraries=/usr/share/prometheus/console_libraries
+      - --web.console.templates=/usr/share/prometheus/consoles
+    ports:
+      - "19091:9090"
+    volumes:
+      - ./deployments/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+
+  grafana:
+    image: docker.io/grafana/grafana:10.4.8
+    depends_on:
+      prometheus:
+        condition: service_started
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_USERS_DEFAULT_THEME: light
+    ports:
+      - "13000:3000"
+    volumes:
+      - ./deployments/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./deployments/grafana/dashboards:/var/lib/grafana/dashboards:ro

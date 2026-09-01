@@ -1,0 +1,57 @@
+openbao:
+  instance_name: "local-openbao"
+  namespace: ""
+  namespaces:
+    - "*"
+  address: "http://127.0.0.1:8200"
+  token: "dev-token"
+  mounts:
+    - "*"
+
+destination:
+  type: "dryrun"
+
+watcher:
+  type: "auditlog"
+  audit_log_path: "./testdata/audit.log"
+  http:
+    listen_address: "127.0.0.1:8080"
+    path: "/ingress"
+    auth_token: ""
+
+api:
+  enabled: true
+  listen_address: "127.0.0.1:9090"
+  auth_token: ""
+
+state:
+  type: "sqlite"
+  dsn: "./sync-state.db"
+
+azure:
+  auth:
+    type: "environment"
+  resource_groups:
+    - name: "shared-rg"
+      subscription_id: "00000000-0000-0000-0000-000000000000"
+      auth:
+        type: "client_secret"
+        tenant_id: "00000000-0000-0000-0000-000000000000"
+        client_id: "00000000-0000-0000-0000-000000000000"
+        client_secret_env: "AZURE_SHARED_RG_CLIENT_SECRET"
+  key_vaults:
+    - name: "my-key-vault"
+      url: "https://my-key-vault.vault.azure.net/"
+      resource_group: "shared-rg"
+    - name: "sensitive-key-vault"
+      url: "https://sensitive-key-vault.vault.azure.net/"
+      resource_group: "shared-rg"
+      auth:
+        type: "client_secret"
+        tenant_id: "00000000-0000-0000-0000-000000000000"
+        client_id: "00000000-0000-0000-0000-000000000000"
+        client_secret_env: "AZURE_SENSITIVE_KV_CLIENT_SECRET"
+
+sync:
+  dry_run: true
+  worker_count: 2
