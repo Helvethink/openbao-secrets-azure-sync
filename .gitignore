@@ -25,3 +25,4 @@ sync-state.db
 # Local binaries
 /openbao-kv-azure-sync
 /bin/
+/dist/

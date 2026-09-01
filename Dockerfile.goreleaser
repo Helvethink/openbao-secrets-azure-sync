@@ -1,0 +1,18 @@
+FROM alpine:3.20
+
+RUN apk add --no-cache ca-certificates && \
+	addgroup -S app && \
+	adduser -S -G app app
+
+ARG TARGETPLATFORM
+
+WORKDIR /app
+
+COPY $TARGETPLATFORM/openbao-kv-azure-sync /usr/local/bin/openbao-kv-azure-sync
+COPY configs/config.docker.yaml /app/config.yaml
+
+USER app
+EXPOSE 8080 9090
+
+ENTRYPOINT ["openbao-kv-azure-sync"]
+CMD ["-config", "/app/config.yaml"]

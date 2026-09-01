@@ -1,9 +1,9 @@
 package metrics
 
 import (
-	"fmt"
 	"net/http"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -59,7 +59,7 @@ func (c *Collector) Render() string {
 	for _, key := range keys {
 		builder.WriteString(key)
 		builder.WriteByte(' ')
-		builder.WriteString(fmt.Sprintf("%g", c.counters[key]))
+		builder.WriteString(strconv.FormatFloat(c.counters[key], 'g', -1, 64))
 		builder.WriteByte('\n')
 	}
 	return builder.String()

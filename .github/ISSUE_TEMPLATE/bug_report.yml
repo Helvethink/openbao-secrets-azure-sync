@@ -1,0 +1,147 @@
+name: Bug report
+description: Report reproducible incorrect behavior in the OpenBao-to-Azure synchronization controller.
+title: "[Bug]: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for helping improve OpenBao KV Azure Sync.
+
+        Never include OpenBao or Azure tokens, client secrets, secret values, private certificates, authorization headers, raw audit records, tenant data, or production endpoints. Report security vulnerabilities privately through the repository's Security tab instead of opening a public issue.
+
+  - type: input
+    id: controller-version
+    attributes:
+      label: Controller version
+      description: The release, commit, branch, or container tag where the problem occurs.
+      placeholder: v0.1.0, abc1234, or main
+    validations:
+      required: true
+
+  - type: input
+    id: go-version
+    attributes:
+      label: Go version
+      description: Paste the output of `go version` when building or testing from source.
+      placeholder: go version go1.25.0 linux/amd64
+
+  - type: input
+    id: openbao-version
+    attributes:
+      label: OpenBao version
+      description: Include the OpenBao version when the issue involves audit events, namespaces, or KV v2 behavior.
+      placeholder: v2.x.x
+
+  - type: dropdown
+    id: watcher
+    attributes:
+      label: Watcher type
+      options:
+        - Audit log file
+        - HTTP audit device
+        - Manual API resynchronization
+        - Not applicable
+    validations:
+      required: true
+
+  - type: dropdown
+    id: component
+    attributes:
+      label: Affected component
+      options:
+        - Configuration loading or validation
+        - OpenBao client or namespace handling
+        - Audit-log watcher
+        - HTTP audit-device watcher
+        - Sync metadata or policy
+        - Payload transformation
+        - Azure Key Vault secrets
+        - Azure Key Vault certificates
+        - Operational API or metrics
+        - Logging or graceful shutdown
+        - Docker, Compose, Prometheus, or Grafana
+        - Documentation or examples
+        - Other
+    validations:
+      required: true
+
+  - type: dropdown
+    id: operation
+    attributes:
+      label: Relevant operation
+      options:
+        - Startup or configuration loading
+        - Create or update
+        - Delete, destroy, or undelete
+        - Metadata update or deletion
+        - Manual resynchronization
+        - Shutdown or cancellation
+        - Not applicable
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Problem description
+      description: Explain what went wrong and why it appears to be a bug.
+      placeholder: A clear and concise description of the problem.
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Minimal reproduction
+      description: Provide the smallest safe sequence that reproduces the issue, using placeholder secret values and non-production resource names.
+      placeholder: |
+        1. Start the controller with ...
+        2. Write or update KV v2 metadata with ...
+        3. Trigger ...
+        4. Observe ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      description: What did you expect to happen?
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      description: What happened instead? Include the normalized error type or HTTP status when relevant.
+    validations:
+      required: true
+
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Sanitized diagnostics
+      description: Add relevant logs, stack traces, metrics, or request paths only after removing all secrets, tokens, certificates, tenant data, and production resource names.
+      render: shell
+
+  - type: textarea
+    id: configuration
+    attributes:
+      label: Sanitized configuration and environment
+      description: Include the destination mode, Azure authentication type, operating system, architecture, deployment method, and relevant configuration with sensitive values replaced by placeholders.
+      render: yaml
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Submission checklist
+      options:
+        - label: I searched existing issues and pull requests for duplicates.
+          required: true
+        - label: I removed credentials, secret values, certificates, tenant data, audit payloads, and production endpoints.
+          required: true
+        - label: I can reproduce this issue with the information provided above.
+          required: true
+        - label: This report is not a security vulnerability requiring private disclosure.
+          required: true
