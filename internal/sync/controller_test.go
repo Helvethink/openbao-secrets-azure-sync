@@ -483,8 +483,10 @@ func (d *fakeDestination) PutCertificate(_ context.Context, payload azure.Certif
 	return nil
 }
 
-var _ Source = (*fakeSource)(nil)
-var _ azure.Destination = (*fakeDestination)(nil)
+var (
+	_ Source            = (*fakeSource)(nil)
+	_ azure.Destination = (*fakeDestination)(nil)
+)
 
 type fakeWatcher struct {
 	events chan watcher.Event
