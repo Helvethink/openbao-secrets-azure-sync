@@ -1,7 +1,7 @@
 # OpenBao KV Azure Sync
 
 [![PkgGoDev](https://pkg.go.dev/badge/github.com/Helvethink/openbao-secrets-azure-sync)](https://pkg.go.dev/mod/github.com/Helvethink/openbao-secrets-azure-sync)
-[![Maintainability](https://qlty.sh/badges/8e26fe2e-336b-46d0-880f-00fbed695556/maintainability.svg)](https://qlty.sh/gh/Helvethink/projects/openbao-secrets-azure-sync)
+[![Maintainability](https://qlty.sh/badges/91c1035f-d5ff-464d-a5bd-7794ed447c73/maintainability.svg)](https://qlty.sh/gh/Helvethink/projects/openbao-secrets-azure-sync)
 [![Docker Pulls](https://badgen.net/docker/pulls/helvethink/openbao-secrets-azure-sync?icon=docker&label=pulls)](https://hub.docker.com/r/helvethink/openbao-secrets-azure-sync/)
 [![Docker Stars](https://badgen.net/docker/stars/helvethink/openbao-secrets-azure-sync?icon=docker&label=stars)](https://hub.docker.com/r/helvethink/openbao-secrets-azure-sync/)
 [![test](https://github.com/Helvethink/openbao-secrets-azure-sync/actions/workflows/CI.yml/badge.svg)](https://github.com/Helvethink/openbao-secrets-azure-sync/actions/workflows/CI.yml)
