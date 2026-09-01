@@ -5,8 +5,8 @@ import "strings"
 const (
 	// TargetDryRun routes the event to logging only.
 	TargetDryRun = "dryrun"
-	// TargetAzureKeyVaultSecret maps one OpenBao KV field to one Azure secret. //nolint:gosec
-	TargetAzureKeyVaultSecret = "azure_key_vault/secret"
+	// TargetAzureKeyVaultSecret maps one OpenBao KV field to one Azure secret.
+	TargetAzureKeyVaultSecret = "azure_key_vault/secret" //nolint:gosec // Policy identifier, not a credential.
 	// TargetAzureKeyVaultCertificate imports certificate material into Key Vault.
 	TargetAzureKeyVaultCertificate = "azure_key_vault/certificate"
 	// TargetProviderAzure is the sync.target.provider value for Azure targets.
