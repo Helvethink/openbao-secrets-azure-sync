@@ -1,5 +1,14 @@
 # OpenBao KV Azure Sync
 
+[![PkgGoDev](https://pkg.go.dev/badge/github.com/Helvethink/openbao-secrets-azure-sync)](https://pkg.go.dev/mod/github.com/Helvethink/openbao-secrets-azure-sync)
+[![Maintainability](https://qlty.sh/badges/8e26fe2e-336b-46d0-880f-00fbed695556/maintainability.svg)](https://qlty.sh/gh/Helvethink/projects/openbao-secrets-azure-sync)
+[![Docker Pulls](https://badgen.net/docker/pulls/helvethink/openbao-secrets-azure-sync?icon=docker&label=pulls)](https://hub.docker.com/r/helvethink/openbao-secrets-azure-sync/)
+[![Docker Stars](https://badgen.net/docker/stars/helvethink/openbao-secrets-azure-sync?icon=docker&label=stars)](https://hub.docker.com/r/helvethink/openbao-secrets-azure-sync/)
+[![test](https://github.com/Helvethink/openbao-secrets-azure-sync/actions/workflows/CI.yml/badge.svg)](https://github.com/Helvethink/openbao-secrets-azure-sync/actions/workflows/CI.yml)
+[![Coverage Status](https://coveralls.io/repos/github/Helvethink/openbao-secrets-azure-sync/badge.svg?branch=main)](https://coveralls.io/github/Helvethink/openbao-secrets-azure-sync?branch=main)
+[![release](https://github.com/Helvethink/openbao-secrets-azure-sync/actions/workflows/release.yml/badge.svg)](https://github.com/Helvethink/openbao-secrets-azure-sync/actions/workflows/release.yml)
+[![License](https://img.shields.io/badge/License-MIT-blue.svg)](https://github.com/Helvethink/openbao-secrets-azure-sync/blob/main/LICENSE)
+
 An external Go controller that synchronizes selected OpenBao KV v2 secrets to
 Azure Key Vault. OpenBao remains the source of truth. Synchronization is
 enabled per secret with KV v2 `custom_metadata`; the controller watches an
