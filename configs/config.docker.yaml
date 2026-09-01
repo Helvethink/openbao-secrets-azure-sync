@@ -1,0 +1,36 @@
+openbao:
+  instance_name: "docker-openbao-dev"
+  namespace: ""
+  namespaces:
+    - "*"
+  address: "http://openbao:8200"
+  token: "dev-token"
+  mounts:
+    - "*"
+
+destination:
+  type: "azure"
+
+watcher:
+  type: "http-device"
+  http:
+    listen_address: "0.0.0.0:8080"
+    path: "/ingress"
+    auth_token: "dev-audit-token"
+
+api:
+  enabled: true
+  listen_address: "0.0.0.0:9090"
+  auth_token: ""
+
+state:
+  type: "sqlite"
+  dsn: "/tmp/sync-state.db"
+
+azure:
+  auth:
+    type: "environment"
+
+sync:
+  dry_run: true
+  worker_count: 2

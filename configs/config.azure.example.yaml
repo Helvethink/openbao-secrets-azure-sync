@@ -1,0 +1,39 @@
+openbao:
+  instance_name: "local-openbao"
+  namespace: ""
+  namespaces:
+    - "*"
+  address: "http://127.0.0.1:8200"
+  token: "dev-token"
+  mounts:
+    - "*"
+
+destination:
+  type: "azure"
+
+watcher:
+  type: "http-device"
+  http:
+    listen_address: "0.0.0.0:8080"
+    path: "/ingress"
+    auth_token: "dev-audit-token"
+
+api:
+  enabled: true
+  listen_address: "0.0.0.0:9090"
+  auth_token: ""
+
+state:
+  type: "sqlite"
+  dsn: "./sync-state.db"
+
+azure:
+  auth:
+    type: "client_secret"
+    tenant_id: "00000000-0000-0000-0000-000000000000"
+    client_id: "00000000-0000-0000-0000-000000000000"
+    client_secret_env: "AZURE_CLIENT_SECRET"
+
+sync:
+  dry_run: false
+  worker_count: 2

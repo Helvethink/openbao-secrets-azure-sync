@@ -1,0 +1,27 @@
+# Local environment and credentials
+.env
+.env.*
+!.env.example
+!.env.*.example
+
+# Operating-system and IDE files
+.DS_Store
+.idea/
+.vscode/
+
+# Go build and test artifacts
+.gocache/
+*.test
+coverage.out
+coverage.html
+
+# Local runtime state and logs
+sync-state.db
+*.db-shm
+*.db-wal
+*.log
+!testdata/*.log
+
+# Local binaries
+/openbao-kv-azure-sync
+/bin/

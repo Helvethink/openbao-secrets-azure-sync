@@ -1,0 +1,239 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.com/openbao-kv-azure-sync/config.schema.json",
+  "title": "OpenBao KV Azure Sync configuration",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "openbao": {
+      "$ref": "#/$defs/openbao"
+    },
+    "watcher": {
+      "$ref": "#/$defs/watcher"
+    },
+    "api": {
+      "$ref": "#/$defs/api"
+    },
+    "destination": {
+      "$ref": "#/$defs/destination"
+    },
+    "state": {
+      "$ref": "#/$defs/state"
+    },
+    "azure": {
+      "$ref": "#/$defs/azure"
+    },
+    "sync": {
+      "$ref": "#/$defs/sync"
+    }
+  },
+  "$defs": {
+    "openbao": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "instance_name": {
+          "type": "string",
+          "default": "local-openbao"
+        },
+        "namespace": {
+          "type": "string",
+          "default": ""
+        },
+        "namespaces": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string"
+          },
+          "default": ["*"]
+        },
+        "address": {
+          "type": "string",
+          "default": "http://127.0.0.1:8200"
+        },
+        "token": {
+          "type": "string"
+        },
+        "mounts": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string"
+          },
+          "default": ["*"]
+        }
+      }
+    },
+    "watcher": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["auditlog", "http", "http-device"],
+          "default": "auditlog"
+        },
+        "audit_log_path": {
+          "type": "string",
+          "default": "./testdata/audit.log"
+        },
+        "http": {
+          "$ref": "#/$defs/http_watcher"
+        }
+      }
+    },
+    "http_watcher": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "listen_address": {
+          "type": "string",
+          "default": "127.0.0.1:8080"
+        },
+        "path": {
+          "type": "string",
+          "pattern": "^/",
+          "default": "/ingress"
+        },
+        "auth_token": {
+          "type": "string"
+        }
+      }
+    },
+    "api": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "default": true
+        },
+        "listen_address": {
+          "type": "string",
+          "default": "127.0.0.1:9090"
+        },
+        "auth_token": {
+          "type": "string"
+        }
+      }
+    },
+    "destination": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["dryrun", "azure"],
+          "default": "dryrun"
+        }
+      }
+    },
+    "state": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "type": "string",
+          "default": "sqlite"
+        },
+        "dsn": {
+          "type": "string",
+          "default": "./sync-state.db"
+        }
+      }
+    },
+    "azure": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "auth": {
+          "$ref": "#/$defs/azure_auth"
+        },
+        "resource_groups": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/azure_resource_group"
+          }
+        },
+        "key_vaults": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/azure_key_vault"
+          }
+        }
+      }
+    },
+    "azure_auth": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["environment", "managed_identity", "client_secret"],
+          "default": "environment"
+        },
+        "tenant_id": {
+          "type": "string"
+        },
+        "client_id": {
+          "type": "string"
+        },
+        "client_secret": {
+          "type": "string"
+        },
+        "client_secret_env": {
+          "type": "string"
+        }
+      }
+    },
+    "azure_resource_group": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "subscription_id": {
+          "type": "string"
+        },
+        "auth": {
+          "$ref": "#/$defs/azure_auth"
+        }
+      }
+    },
+    "azure_key_vault": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "url": {
+          "type": "string"
+        },
+        "resource_group": {
+          "type": "string"
+        },
+        "auth": {
+          "$ref": "#/$defs/azure_auth"
+        }
+      }
+    },
+    "sync": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "dry_run": {
+          "type": "boolean",
+          "default": true
+        },
+        "worker_count": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 2
+        }
+      }
+    }
+  }
+}

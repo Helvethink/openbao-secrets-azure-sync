@@ -1,0 +1,8 @@
+.gocache/
+.git/
+.idea/
+.env
+sync-state.db
+*.log
+Dockerfile
+docker-compose.yml
