@@ -1,0 +1,123 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/goreleaser/goreleaser/v2.18.0/www/docs/static/schema.json
+
+version: 2
+
+project_name: openbao-kv-azure-sync
+
+before:
+  hooks:
+    - go mod verify
+
+builds:
+  - id: openbao-kv-azure-sync
+    main: ./cmd/openbao-kv-azure-sync
+    binary: openbao-kv-azure-sync
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - darwin
+      - linux
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    flags:
+      - -trimpath
+    ldflags:
+      - -s -w
+
+archives:
+  - id: openbao-kv-azure-sync
+    ids:
+      - openbao-kv-azure-sync
+    formats:
+      - tar.gz
+    format_overrides:
+      - goos: windows
+        formats:
+          - zip
+    name_template: >-
+      {{ .ProjectName }}_{{ .Version }}_{{ title .Os }}_
+      {{- if eq .Arch "amd64" }}x86_64
+      {{- else }}{{ .Arch }}{{ end }}
+    files:
+      - LICENSE
+      - README.md
+      - src: configs/config.example.yaml
+        dst: config.example.yaml
+
+nfpms:
+  - id: openbao-kv-azure-sync
+    ids:
+      - openbao-kv-azure-sync
+    package_name: openbao-kv-azure-sync
+    maintainer: Helvethink <technical@helvethink.ch>
+    vendor: Helvethink
+    homepage: https://github.com/Helvethink/openbao-secrets-azure-sync
+    description: Synchronizes selected OpenBao KV v2 secrets to Azure Key Vault.
+    license: MIT
+    bindir: /usr/bin
+    formats:
+      - apk
+      - deb
+      - rpm
+    contents:
+      - src: LICENSE
+        dst: /usr/share/doc/openbao-kv-azure-sync/copyright
+        file_info:
+          mode: 0644
+
+dockers_v2:
+  - id: openbao-kv-azure-sync
+    ids:
+      - openbao-kv-azure-sync
+    dockerfile: Dockerfile.goreleaser
+    images:
+      - docker.io/helvethink/openbao-secrets-azure-sync
+      - ghcr.io/helvethink/openbao-secrets-azure-sync
+      - quay.io/helvethink/openbao-secrets-azure-sync
+    tags:
+      - "{{ .Tag }}"
+      - "{{ if not .Prerelease }}latest{{ end }}"
+    platforms:
+      - linux/amd64
+      - linux/arm64
+    extra_files:
+      - configs/config.docker.yaml
+    labels:
+      org.opencontainers.image.title: openbao-secrets-azure-sync
+      org.opencontainers.image.description: Synchronizes selected OpenBao KV v2 secrets to Azure Key Vault.
+      org.opencontainers.image.url: https://github.com/Helvethink/openbao-secrets-azure-sync
+      org.opencontainers.image.source: https://github.com/Helvethink/openbao-secrets-azure-sync
+      org.opencontainers.image.version: "{{ .Version }}"
+      org.opencontainers.image.created: "{{ .Date }}"
+      org.opencontainers.image.revision: "{{ .FullCommit }}"
+      org.opencontainers.image.licenses: MIT
+    annotations:
+      index,manifest:org.opencontainers.image.description: Synchronizes selected OpenBao KV v2 secrets to Azure Key Vault.
+      index,manifest:org.opencontainers.image.source: https://github.com/Helvethink/openbao-secrets-azure-sync
+      index,manifest:org.opencontainers.image.version: "{{ .Version }}"
+      index,manifest:org.opencontainers.image.revision: "{{ .FullCommit }}"
+      index,manifest:org.opencontainers.image.licenses: MIT
+    sbom: true
+
+sboms:
+  - id: archives
+    artifacts: archive
+
+checksum:
+  name_template: checksums.txt
+  algorithm: sha256
+
+changelog:
+  use: git
+  sort: asc
+  filters:
+    exclude:
+      - '^ci(\([^)]*\))?!?:'
+      - '^chore(\([^)]*\))?!?:'
+      - '^docs(\([^)]*\))?!?:'
+      - '^test(\([^)]*\))?!?:'
+
+release:
+  prerelease: auto
