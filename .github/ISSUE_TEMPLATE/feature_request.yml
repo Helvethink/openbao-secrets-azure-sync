@@ -1,0 +1,96 @@
+name: Feature request
+description: Propose an OpenBao synchronization, Azure destination, operational, or documentation improvement.
+title: "[Feature]: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for proposing an improvement. Describe the synchronization or operational need before suggesting an implementation.
+
+        Do not include credentials, secret values, certificates, tenant data, raw audit records, or production endpoints.
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - OpenBao client, namespaces, or KV v2 metadata
+        - Audit-log watcher
+        - HTTP audit-device watcher
+        - Synchronization policy or transformation
+        - Azure Key Vault secrets
+        - Azure Key Vault certificates
+        - New Azure destination type
+        - State, retries, or reconciliation
+        - Operational API, metrics, or logging
+        - Configuration or JSON schema
+        - Docker, Compose, Prometheus, or Grafana
+        - Documentation or examples
+        - Testing or developer experience
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem or use case
+      description: Describe the operator need, limitation, or workflow this proposal addresses.
+      placeholder: As an operator, I need to ... so that ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed behavior
+      description: Describe the observable behavior, triggering event, destination effect, failure behavior, and expected operational outcome.
+    validations:
+      required: true
+
+  - type: textarea
+    id: example
+    attributes:
+      label: Example metadata, configuration, or command
+      description: Show how an operator would configure or use the proposed capability with placeholder values.
+      render: yaml
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Describe current workarounds or other designs you considered.
+
+  - type: textarea
+    id: security-operations
+    attributes:
+      label: Security and operational considerations
+      description: Describe effects on secrets, authentication, authorization, provenance, logging, network exposure, retries, ordering, deletion, or recovery.
+
+  - type: dropdown
+    id: compatibility
+    attributes:
+      label: Compatibility impact
+      description: Select the expected impact on existing controller deployments and synchronized objects.
+      options:
+        - Additive and backward compatible
+        - Changes synchronization behavior
+        - Requires configuration or metadata migration
+        - Potentially breaking or destructive
+        - Unsure
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Submission checklist
+      options:
+        - label: I searched existing issues and pull requests for similar proposals.
+          required: true
+        - label: I described the operator-facing use case and expected behavior.
+          required: true
+        - label: I considered compatibility with existing sync metadata, configuration, and Azure objects.
+          required: true
+        - label: I did not include credentials, secret values, certificates, tenant data, or production endpoints.
+          required: true
