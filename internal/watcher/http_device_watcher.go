@@ -9,6 +9,13 @@ import (
 	"net/http"
 	"strings"
 	"time"
+
+	"openbao-kv-azure-sync/internal/httpauth"
+)
+
+const (
+	maxAuditRequestBodySize = 10 << 20
+	maxAuditRecordSize      = 1 << 20
 )
 
 type HTTPDeviceOptions struct {
@@ -53,6 +60,10 @@ func (w *HTTPDeviceWatcher) Watch(ctx context.Context) (<-chan Event, <-chan err
 		Addr:              w.listenAddress,
 		Handler:           mux,
 		ReadHeaderTimeout: 5 * time.Second,
+		ReadTimeout:       30 * time.Second,
+		WriteTimeout:      5 * time.Minute,
+		IdleTimeout:       60 * time.Second,
+		MaxHeaderBytes:    1 << 20,
 	}
 
 	go func() {
@@ -91,10 +102,17 @@ func (w *HTTPDeviceWatcher) ServeHTTP(response http.ResponseWriter, request *htt
 		return
 	}
 	defer request.Body.Close()
+	request.Body = http.MaxBytesReader(response, request.Body, maxAuditRequestBodySize)
 
 	accepted, err := w.accept(request.Context(), request.Body)
 	if err != nil {
-		http.Error(response, err.Error(), http.StatusInternalServerError)
+		var maxBytesErr *http.MaxBytesError
+		if errors.As(err, &maxBytesErr) {
+			http.Error(response, "request body too large", http.StatusRequestEntityTooLarge)
+			return
+		}
+		w.logger.Error("process audit request", "error", err)
+		http.Error(response, "audit processing failed", http.StatusInternalServerError)
 		return
 	}
 	if accepted == 0 {
@@ -107,6 +125,7 @@ func (w *HTTPDeviceWatcher) ServeHTTP(response http.ResponseWriter, request *htt
 // accept parses newline-delimited audit records and waits for each event ACK.
 func (w *HTTPDeviceWatcher) accept(ctx context.Context, body io.Reader) (int, error) {
 	scanner := bufio.NewScanner(body)
+	scanner.Buffer(make([]byte, 64*1024), maxAuditRecordSize)
 	accepted := 0
 	for scanner.Scan() {
 		line := scanner.Text()
@@ -147,8 +166,11 @@ func (w *HTTPDeviceWatcher) authorized(request *http.Request) bool {
 	if w.authToken == "" {
 		return true
 	}
-	if request.Header.Get("X-OpenBao-Audit-Token") == w.authToken {
+	if httpauth.TokenMatches(request.Header.Get("X-OpenBao-Audit-Token"), w.authToken) {
 		return true
 	}
-	return request.Header.Get("Authorization") == "Bearer "+w.authToken
+	const bearerPrefix = "Bearer "
+	authorization := request.Header.Get("Authorization")
+	return strings.HasPrefix(authorization, bearerPrefix) &&
+		httpauth.TokenMatches(strings.TrimPrefix(authorization, bearerPrefix), w.authToken)
 }

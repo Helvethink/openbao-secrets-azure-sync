@@ -4,15 +4,19 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"io"
 	"log/slog"
 	"net/http"
 	"strings"
 	"time"
 
+	"openbao-kv-azure-sync/internal/httpauth"
 	"openbao-kv-azure-sync/internal/metrics"
 	controller "openbao-kv-azure-sync/internal/sync"
 	"openbao-kv-azure-sync/internal/watcher"
 )
+
+const maxSyncRequestBodySize = 1 << 20
 
 // Server exposes operational endpoints for metrics and manual reconciliation.
 type Server struct {
@@ -55,6 +59,10 @@ func (s *Server) Run(ctx context.Context) error {
 		Addr:              s.listenAddress,
 		Handler:           mux,
 		ReadHeaderTimeout: 5 * time.Second,
+		ReadTimeout:       10 * time.Second,
+		WriteTimeout:      60 * time.Second,
+		IdleTimeout:       60 * time.Second,
+		MaxHeaderBytes:    1 << 20,
 	}
 
 	errs := make(chan error, 1)
@@ -98,14 +106,27 @@ func (s *Server) handleSync(response http.ResponseWriter, request *http.Request)
 		http.Error(response, "unauthorized", http.StatusUnauthorized)
 		return
 	}
+	defer request.Body.Close()
+	request.Body = http.MaxBytesReader(response, request.Body, maxSyncRequestBodySize)
 
 	var body struct {
 		Mount     string `json:"mount"`
 		Path      string `json:"path"`
 		Namespace string `json:"namespace"`
 	}
-	if err := json.NewDecoder(request.Body).Decode(&body); err != nil {
-		http.Error(response, err.Error(), http.StatusBadRequest)
+	decoder := json.NewDecoder(request.Body)
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&body); err != nil {
+		var maxBytesErr *http.MaxBytesError
+		if errors.As(err, &maxBytesErr) {
+			http.Error(response, "request body too large", http.StatusRequestEntityTooLarge)
+			return
+		}
+		http.Error(response, "invalid request body", http.StatusBadRequest)
+		return
+	}
+	if err := decoder.Decode(&struct{}{}); !errors.Is(err, io.EOF) {
+		http.Error(response, "invalid request body", http.StatusBadRequest)
 		return
 	}
 	body.Mount = strings.Trim(body.Mount, "/")
@@ -123,7 +144,13 @@ func (s *Server) handleSync(response http.ResponseWriter, request *http.Request)
 		Operation: "api_resync",
 	})
 	if err != nil {
-		http.Error(response, err.Error(), http.StatusInternalServerError)
+		s.logger.Error("manual reconciliation failed",
+			"namespace", body.Namespace,
+			"mount", body.Mount,
+			"path", body.Path,
+			"error", err,
+		)
+		http.Error(response, "reconciliation failed", http.StatusInternalServerError)
 		return
 	}
 	response.WriteHeader(http.StatusAccepted)
@@ -133,8 +160,11 @@ func (s *Server) authorized(request *http.Request) bool {
 	if s.authToken == "" {
 		return true
 	}
-	if request.Header.Get("X-OpenBao-Sync-Token") == s.authToken {
+	if httpauth.TokenMatches(request.Header.Get("X-OpenBao-Sync-Token"), s.authToken) {
 		return true
 	}
-	return request.Header.Get("Authorization") == "Bearer "+s.authToken
+	const bearerPrefix = "Bearer "
+	authorization := request.Header.Get("Authorization")
+	return strings.HasPrefix(authorization, bearerPrefix) &&
+		httpauth.TokenMatches(strings.TrimPrefix(authorization, bearerPrefix), s.authToken)
 }

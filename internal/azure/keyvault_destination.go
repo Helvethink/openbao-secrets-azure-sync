@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"net/url"
 	"os"
 	"strings"
 	"sync"
@@ -71,7 +72,7 @@ type ProvenanceCollisionError struct {
 }
 
 func (e ProvenanceCollisionError) Error() string {
-	return fmt.Sprintf("azure secret %q has different OpenBao provenance", e.RemoteName)
+	return fmt.Sprintf("azure object %q has different OpenBao provenance", e.RemoteName)
 }
 
 func (e ProvenanceCollisionError) ErrorType() string {
@@ -93,6 +94,11 @@ func NewKeyVaultDestination(config KeyVaultDestinationConfig) (*KeyVaultDestinat
 		destination.resourceGroups[normalizeName(group.Name)] = group
 	}
 	for _, vault := range config.KeyVaults {
+		if vault.URL != "" {
+			if err := validateKeyVaultURL(vault.URL); err != nil {
+				return nil, fmt.Errorf("azure key vault %q: %w", vault.Name, err)
+			}
+		}
 		destination.keyVaults[normalizeName(vault.Name)] = vault
 	}
 	return destination, nil
@@ -160,10 +166,7 @@ func (d *KeyVaultDestination) ensureSecretOwnership(ctx context.Context, client 
 		return err
 	}
 
-	if sameTag(secret.Tags, "openbao_instance", payload.SourceInstance) &&
-		sameTag(secret.Tags, "openbao_namespace", payload.Namespace) &&
-		sameTag(secret.Tags, "openbao_path", payload.Path) &&
-		sameTag(secret.Tags, "openbao_key", payload.Key) {
+	if hasSecretProvenance(secret.Tags, payload) {
 		return nil
 	}
 
@@ -230,6 +233,9 @@ func (d *KeyVaultDestination) PutCertificate(ctx context.Context, payload Certif
 	if len(payload.Certificate) == 0 {
 		return errors.New("certificate payload is empty")
 	}
+	if err := d.ensureCertificateOwnership(ctx, client, payload); err != nil {
+		return err
+	}
 
 	encoded := string(payload.Certificate)
 	if !looksLikeBase64(encoded) {
@@ -259,6 +265,22 @@ func (d *KeyVaultDestination) PutCertificate(ctx context.Context, payload Certif
 		"remote_name", payload.RemoteName,
 	)
 	return nil
+}
+
+// ensureCertificateOwnership prevents overwriting a Key Vault certificate
+// owned by another OpenBao origin.
+func (d *KeyVaultDestination) ensureCertificateOwnership(ctx context.Context, client *azcertificates.Client, payload CertificatePayload) error {
+	certificate, err := client.GetCertificate(ctx, payload.RemoteName, "", nil)
+	if err != nil {
+		if isNotFound(err) {
+			return nil
+		}
+		return err
+	}
+	if hasCertificateProvenance(certificate.Tags, payload) {
+		return nil
+	}
+	return ProvenanceCollisionError{RemoteName: payload.RemoteName}
 }
 
 // secretClient returns a cached Azure Key Vault secret client for the target.
@@ -310,6 +332,9 @@ func (d *KeyVaultDestination) resolveTarget(keyVaultName string) (KeyVaultConfig
 		target.Name = keyVaultName
 	}
 	if target.URL == "" {
+		if !isSafeKeyVaultName(target.Name) {
+			return KeyVaultConfig{}, nil, fmt.Errorf("invalid azure key vault name %q", target.Name)
+		}
 		target.URL = fmt.Sprintf("https://%s.vault.azure.net/", target.Name)
 	}
 
@@ -397,6 +422,35 @@ func normalizeName(value string) string {
 	return strings.ToLower(strings.TrimSpace(value))
 }
 
+// isSafeKeyVaultName accepts a DNS-label-shaped name before constructing an
+// Azure endpoint from metadata controlled by OpenBao users.
+func isSafeKeyVaultName(value string) bool {
+	if len(value) == 0 || len(value) > 63 {
+		return false
+	}
+	for i, r := range value {
+		if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') {
+			continue
+		}
+		if r != '-' || i == 0 || i == len(value)-1 {
+			return false
+		}
+	}
+	return true
+}
+
+func validateKeyVaultURL(value string) error {
+	parsed, err := url.Parse(value)
+	if err != nil {
+		return fmt.Errorf("parse URL: %w", err)
+	}
+	if parsed.Scheme != "https" || parsed.Host == "" || parsed.User != nil ||
+		(parsed.Path != "" && parsed.Path != "/") || parsed.RawQuery != "" || parsed.Fragment != "" {
+		return errors.New("URL must be an HTTPS origin without credentials, query, or fragment")
+	}
+	return nil
+}
+
 // looksLikeBase64 reports whether a certificate payload is already base64.
 func looksLikeBase64(value string) bool {
 	value = strings.TrimSpace(value)
@@ -434,6 +488,26 @@ func sameTag(tags map[string]*string, key, want string) bool {
 		return true
 	}
 	return value != nil && *value == want
+}
+
+func hasSecretProvenance(tags map[string]*string, payload SecretPayload) bool {
+	return sameTag(tags, "openbao_instance", payload.SourceInstance) &&
+		sameTag(tags, "openbao_namespace", payload.Namespace) &&
+		sameTag(tags, "openbao_mount", payload.Mount) &&
+		sameTag(tags, "openbao_path", payload.Path) &&
+		sameTag(tags, "openbao_key", payload.Key)
+}
+
+func hasCertificateProvenance(tags map[string]*string, payload CertificatePayload) bool {
+	return sameTag(tags, "openbao_instance", payload.SourceInstance) &&
+		sameTag(tags, "openbao_namespace", payload.Namespace) &&
+		sameTag(tags, "openbao_mount", payload.Mount) &&
+		sameTag(tags, "openbao_path", payload.Path)
+}
+
+func isNotFound(err error) bool {
+	var responseErr *azcore.ResponseError
+	return errors.As(err, &responseErr) && responseErr.StatusCode == http.StatusNotFound
 }
 
 func isDeletedButRecoverable(err error) bool {
