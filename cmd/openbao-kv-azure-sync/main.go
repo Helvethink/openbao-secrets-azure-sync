@@ -54,11 +54,17 @@ func main() {
 		Logger:         logger,
 	})
 
-	errs := make(chan error, 2)
+	type componentResult struct {
+		name string
+		err  error
+	}
+	results := make(chan componentResult, 2)
+	componentCount := 1
 	go func() {
-		errs <- ctrl.Run(ctx)
+		results <- componentResult{name: "controller", err: ctrl.Run(ctx)}
 	}()
 	if cfg.API.Enabled {
+		componentCount++
 		apiServer := api.NewServer(api.Options{
 			ListenAddress: cfg.API.ListenAddress,
 			AuthToken:     cfg.API.AuthToken,
@@ -67,12 +73,21 @@ func main() {
 			Logger:        logger,
 		})
 		go func() {
-			errs <- apiServer.Run(ctx)
+			results <- componentResult{name: "api server", err: apiServer.Run(ctx)}
 		}()
 	}
 
-	if err := <-errs; err != nil {
-		logger.Error("controller stopped", "error", err)
+	firstResult := <-results
+	stop()
+	componentResults := []componentResult{firstResult}
+	for range componentCount - 1 {
+		componentResults = append(componentResults, <-results)
+	}
+	for _, result := range componentResults {
+		if result.err == nil {
+			continue
+		}
+		logger.Error("component stopped", "component", result.name, "error", result.err)
 		os.Exit(1)
 	}
 }
