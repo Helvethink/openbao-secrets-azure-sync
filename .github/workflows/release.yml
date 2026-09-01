@@ -1,0 +1,139 @@
+---
+name: Start Release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+permissions:
+  actions: read
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  require-ci:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      actions: read
+      contents: read
+    steps:
+      - name: Harden the runner (Audit all outbound calls)
+        uses: step-security/harden-runner@05e31511f85b41b11d1cf0ef85d0992719546e2c # v2.21.0
+        with:
+          egress-policy: audit
+
+      - name: Wait for CI on tagged commit
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPOSITORY: ${{ github.repository }}
+          SHA: ${{ github.sha }}
+        run: |
+          set -eu
+
+          api="https://api.github.com/repos/${REPOSITORY}/actions/runs?event=push&head_sha=${SHA}&per_page=100"
+          attempts=60
+          sleep_seconds=30
+
+          for attempt in $(seq 1 "${attempts}"); do
+            response="$(curl --fail --silent --show-error \
+              -H "Authorization: Bearer ${GH_TOKEN}" \
+              -H "Accept: application/vnd.github+json" \
+              "${api}")"
+
+            run_count="$(printf '%s' "${response}" | jq '[.workflow_runs[] | select(.name == "CI" and .path == ".github/workflows/CI.yml")] | length')"
+
+            if [ "${run_count}" -eq 0 ]; then
+              echo "No CI run found yet for ${SHA}; attempt ${attempt}/${attempts}."
+              sleep "${sleep_seconds}"
+              continue
+            fi
+
+            status="$(printf '%s' "${response}" | jq -r '[.workflow_runs[] | select(.name == "CI" and .path == ".github/workflows/CI.yml")] | sort_by(.run_number) | last | .status')"
+            conclusion="$(printf '%s' "${response}" | jq -r '[.workflow_runs[] | select(.name == "CI" and .path == ".github/workflows/CI.yml")] | sort_by(.run_number) | last | .conclusion')"
+            html_url="$(printf '%s' "${response}" | jq -r '[.workflow_runs[] | select(.name == "CI" and .path == ".github/workflows/CI.yml")] | sort_by(.run_number) | last | .html_url')"
+
+            echo "CI status: ${status}, conclusion: ${conclusion}, url: ${html_url}"
+
+            if [ "${status}" = "completed" ] && [ "${conclusion}" = "success" ]; then
+              exit 0
+            fi
+
+            if [ "${status}" = "completed" ]; then
+              echo "::error::CI did not succeed for ${SHA}. See ${html_url}"
+              exit 1
+            fi
+
+            sleep "${sleep_seconds}"
+          done
+
+          echo "::error::Timed out waiting for CI to succeed for ${SHA}."
+          exit 1
+
+  release:
+    needs: require-ci
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    permissions:
+      packages: write
+      contents: write
+    steps:
+      - name: Harden the runner (Audit all outbound calls)
+        uses: step-security/harden-runner@05e31511f85b41b11d1cf0ef85d0992719546e2c # v2.21.0
+        with:
+          egress-policy: audit
+
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          cache: false
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@96fe6ef7f33517b61c61be40b68a1882f3264fb8 # v4.2.0
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4.3.0
+
+      - name: Login - Docker Hub
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v3
+        with:
+          registry: docker.io
+          username: ${{ secrets.DOCKER_USER }}
+          password: ${{ secrets.DOCKER_TOKEN }}
+
+      - name: Login - Quay.io
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v3
+        with:
+          registry: quay.io
+          username: ${{ secrets.QUAY_USER }}
+          password: ${{ secrets.QUAY_TOKEN }}
+
+      - name: Login - GHCR.io
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install Syft
+        uses: anchore/sbom-action/download-syft@e22c389904149dbc22b58101806040fa8d37a610 # v0.24.0
+
+      - name: Run GoReleaser
+        uses: goreleaser/goreleaser-action@f06c13b6b1a9625abc9e6e439d9c05a8f2190e94 # v7.2.3
+        with:
+          distribution: goreleaser
+          version: "v2.18.0"
+          args: release --clean
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
