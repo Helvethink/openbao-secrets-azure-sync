@@ -2,6 +2,7 @@ package azure
 
 import (
 	"os"
+	"strings"
 	"testing"
 )
 
@@ -120,4 +121,60 @@ func TestProvenanceTags(t *testing.T) {
 	assertTag("openbao_key", "username")
 	assertTag("openbao_version", "12")
 	assertTag("openbao_origin", "openbao-dev/finance/secret/app/db/username")
+}
+
+func TestResolveTargetRejectsUnsafeDynamicKeyVaultName(t *testing.T) {
+	destination, err := NewKeyVaultDestination(KeyVaultDestinationConfig{})
+	if err != nil {
+		t.Fatalf("NewKeyVaultDestination returned error: %v", err)
+	}
+
+	_, _, err = destination.resolveTarget("attacker.example#")
+	if err == nil || !strings.Contains(err.Error(), "invalid azure key vault name") {
+		t.Fatalf("resolveTarget error = %v, want invalid name", err)
+	}
+}
+
+func TestNewKeyVaultDestinationRejectsUnsafeConfiguredURL(t *testing.T) {
+	_, err := NewKeyVaultDestination(KeyVaultDestinationConfig{
+		KeyVaults: []KeyVaultConfig{{Name: "team-vault", URL: "http://example.test/"}},
+	})
+	if err == nil {
+		t.Fatal("NewKeyVaultDestination returned nil error")
+	}
+}
+
+func TestSecretProvenanceIncludesMount(t *testing.T) {
+	payload := SecretPayload{
+		SourceInstance: "openbao-dev",
+		Namespace:      "finance",
+		Mount:          "secret-a",
+		Path:           "app/db",
+		Key:            "username",
+	}
+	tags := provenanceTags(payload.SourceInstance, payload.Namespace, payload.Mount, payload.Path, payload.Key, 1)
+	if !hasSecretProvenance(tags, payload) {
+		t.Fatal("hasSecretProvenance() = false for matching origin")
+	}
+	payload.Mount = "secret-b"
+	if hasSecretProvenance(tags, payload) {
+		t.Fatal("hasSecretProvenance() = true for a different mount")
+	}
+}
+
+func TestCertificateProvenanceIncludesMount(t *testing.T) {
+	payload := CertificatePayload{
+		SourceInstance: "openbao-dev",
+		Namespace:      "finance",
+		Mount:          "secret-a",
+		Path:           "tls/api",
+	}
+	tags := provenanceTags(payload.SourceInstance, payload.Namespace, payload.Mount, payload.Path, "", 1)
+	if !hasCertificateProvenance(tags, payload) {
+		t.Fatal("hasCertificateProvenance() = false for matching origin")
+	}
+	payload.Mount = "secret-b"
+	if hasCertificateProvenance(tags, payload) {
+		t.Fatal("hasCertificateProvenance() = true for a different mount")
+	}
 }
