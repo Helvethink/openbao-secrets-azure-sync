@@ -18,6 +18,10 @@ import (
 )
 
 func main() {
+	os.Exit(run())
+}
+
+func run() int {
 	configPath := flag.String("config", "configs/config.example.yaml", "path to the controller configuration file")
 	flag.Parse()
 
@@ -26,7 +30,7 @@ func main() {
 	cfg, err := config.Load(*configPath)
 	if err != nil {
 		logger.Error("load config", "error", err)
-		os.Exit(1)
+		return 1
 	}
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
@@ -35,13 +39,13 @@ func main() {
 	selectedWatcher, err := newWatcher(cfg, logger)
 	if err != nil {
 		logger.Error("create watcher", "error", err)
-		os.Exit(1)
+		return 1
 	}
 	baoClient := openbao.NewClient(cfg.OpenBao.Address, cfg.OpenBao.Token, cfg.OpenBao.Namespace)
 	destination, err := newDestination(cfg, logger)
 	if err != nil {
 		logger.Error("create destination", "error", err)
-		os.Exit(1)
+		return 1
 	}
 
 	metricsCollector := metrics.NewCollector()
@@ -88,8 +92,9 @@ func main() {
 			continue
 		}
 		logger.Error("component stopped", "component", result.name, "error", result.err)
-		os.Exit(1)
+		return 1
 	}
+	return 0
 }
 
 func newWatcher(cfg config.Config, logger *slog.Logger) (watcher.Watcher, error) {
